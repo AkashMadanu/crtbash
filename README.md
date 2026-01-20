@@ -22,8 +22,8 @@ sudo apt update && sudo apt install -y curl jq
 ## Installation
 
 ```bash
-git clone https://github.com/YOUR_USERNAME/CRTBASH.git
-cd CRTBASH
+git clone https://github.com/AkashMadanu/crtbash.git
+cd crtbash
 chmod +x crtbash
 ```
 
