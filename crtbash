@@ -1,0 +1,101 @@
+#!/bin/bash
+
+# =============================================================================
+# CRTBASH - Certificate Transparency Log Search Tool
+# =============================================================================
+# This script queries crt.sh to find SSL/TLS certificates associated with
+# a domain or organization. Useful for subdomain enumeration during security
+# assessments and bug bounty hunting.
+# =============================================================================
+
+# -----------------------------------------------------------------------------
+# Help() - Displays usage instructions
+# -----------------------------------------------------------------------------
+Help() {
+   echo "Options:"
+   echo ""
+   echo "-h     Help"
+   echo "-d     Search Domain Name       | Example: $0 -d hackerone.com"
+   echo "-o     Search Organization Name | Example: $0 -o hackerone+inc"
+   echo ""
+}
+
+# -----------------------------------------------------------------------------
+# Domain() - Search certificates by domain name
+# -----------------------------------------------------------------------------
+# Queries crt.sh with a wildcard (%) prefix to find all subdomains
+# Example: %.hackerone.com finds *.hackerone.com, api.hackerone.com, etc.
+# -----------------------------------------------------------------------------
+Domain() {
+    # -s: Silent mode (no progress bar)
+    # %.$req: Wildcard search for all subdomains
+    # output=json: Request JSON format response
+    curl -s "https://crt.sh?q=%.$req&output=json" \
+    | jq -r ".[].common_name,.[].name_value" \
+    | sed 's/\\n/\n/g' \
+    | sed 's/^\*\.//' \
+    | sed -E 's/[A-Za-z0-9._%+-]+@[A-Za-z0-9.-]+\.[A-Za-z]{2,4}//g' \
+    | sort -u
+    # Pipeline breakdown:
+    # 1. jq: Extract common_name and name_value fields from JSON
+    # 2. sed: Convert literal \n to actual newlines
+    # 3. sed: Remove wildcard prefix (*.) from domains
+    # 4. sed: Remove email addresses from output
+    # 5. sort -u: Sort alphabetically and remove duplicates
+}
+
+# -----------------------------------------------------------------------------
+# Organization() - Search certificates by organization name
+# -----------------------------------------------------------------------------
+# Queries crt.sh by organization name (use + for spaces)
+# Example: hackerone+inc searches for "hackerone inc"
+# -----------------------------------------------------------------------------
+Organization() {
+    curl -s "https://crt.sh?q=$req&output=json" \
+    | jq -r ".[].common_name" \
+    | sed 's/\\n/\n/g' \
+    | sed 's/^\*\.//' \
+    | sed -E 's/[A-Za-z0-9._%+-]+@[A-Za-z0-9.-]+\.[A-Za-z]{2,4}//g' \
+    | sort -u
+    # Pipeline breakdown:
+    # 1. jq: Extract only common_name field from JSON
+    # 2. sed: Convert literal \n to actual newlines
+    # 3. sed: Remove wildcard prefix (*.) from domains
+    # 4. sed: Remove email addresses from output
+    # 5. sort -u: Sort alphabetically and remove duplicates
+}
+
+# =============================================================================
+# Main Script Logic
+# =============================================================================
+
+# Check if no arguments were provided - show help and exit
+if [ -z "$1" ]; then
+    Help
+    exit 0
+else
+    # Store the second argument (domain/org name) in $req variable
+    req="$2"
+fi
+
+# Parse command line options using getopts
+# h  = help (no argument required)
+# d: = domain (colon means argument required)
+# o: = organization (colon means argument required)
+while getopts "hd:o:" option; do
+   case $option in
+      h)
+         Help
+         ;;
+      d)
+         Domain
+         ;;
+      o)
+         Organization
+         ;;
+      *)
+         # Invalid option - show help
+         Help
+         ;;
+   esac
+done
